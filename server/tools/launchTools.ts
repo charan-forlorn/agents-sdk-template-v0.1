@@ -1,7 +1,20 @@
 import { tool } from '@openai/agents';
 import { z } from 'zod';
-import type { LaunchInput, LaunchCopy, OwnerChecklist, PlanTask, ReadinessCheck } from '../domain/launchTypes.js';
-import { LaunchInputSchema, missingLaunchDetails, normalizeLaunchInput } from '../domain/launchTypes.js';
+import type {
+  LaunchInput,
+  LaunchCopy,
+  LaunchRisk,
+  OwnerChecklist,
+  PlanTask,
+  ReadinessCheck,
+  StructuredLaunchPlan,
+} from '../domain/launchTypes.js';
+import {
+  LaunchInputSchema,
+  StructuredLaunchPlanSchema,
+  missingLaunchDetails,
+  normalizeLaunchInput,
+} from '../domain/launchTypes.js';
 
 const launchInputParameters = z.object({
   productBrief: z.string(),
@@ -125,6 +138,74 @@ export function draftChannelLaunchCopy(input: LaunchInput): LaunchCopy[] {
       copy: `Launching ${normalized.launchDate}: ${shortBrief}. Built with ${audience} in mind.`,
     },
   ];
+}
+
+function riskForGap(gap: string): LaunchRisk {
+  if (/risk|rollback|qa|compliance|security|privacy/i.test(gap)) {
+    return {
+      title: 'Release safety expectations are underspecified',
+      severity: 'high',
+      mitigation: 'Define QA, compliance, monitoring, and rollback expectations before launch approval.',
+    };
+  }
+
+  if (/metric|success|adoption|activation|revenue|retention/i.test(gap)) {
+    return {
+      title: 'Launch success may be hard to measure',
+      severity: 'medium',
+      mitigation: 'Choose launch success metrics and assign a first-week readout owner.',
+    };
+  }
+
+  if (/owner|role/i.test(gap)) {
+    return {
+      title: 'Launch work may lack clear accountability',
+      severity: 'medium',
+      mitigation: 'Name accountable owners for engineering, product, support, docs, and go-to-market work.',
+    };
+  }
+
+  return {
+    title: 'Launch assets may block announcement readiness',
+    severity: 'medium',
+    mitigation: 'Confirm creative, docs, enablement, and demo assets before the public announcement.',
+  };
+}
+
+function followUpQuestionForGap(gap: string): string {
+  if (/owner|role/i.test(gap)) return 'Who owns engineering, product, support, docs, and go-to-market launch work?';
+  if (/metric|success|adoption|activation|revenue|retention/i.test(gap)) {
+    return 'Which success metrics will define whether this launch worked?';
+  }
+  if (/risk|rollback|qa|compliance|security|privacy/i.test(gap)) {
+    return 'What QA, compliance, monitoring, and rollback expectations must be met before launch?';
+  }
+  return 'Which creative, docs, enablement, or demo assets are already available?';
+}
+
+export function buildStructuredLaunchPlan(input: LaunchInput): StructuredLaunchPlan {
+  const normalized = normalizeLaunchInput(input);
+  const prioritizedPlan = extractTasksFromBrief(normalized);
+  const readiness = checkReadinessAgainstRubric(normalized);
+  const risks =
+    readiness.gaps.length > 0
+      ? readiness.gaps.map(riskForGap)
+      : [
+          {
+            title: 'Launch coordination can drift without active ownership',
+            severity: 'low' as const,
+            mitigation: 'Keep the launch owner checklist visible until the release is complete.',
+          },
+        ];
+  const followUpQuestions = readiness.gaps.map(followUpQuestionForGap);
+
+  return StructuredLaunchPlanSchema.parse({
+    prioritized_plan: prioritizedPlan,
+    risks,
+    owner_checklist: generateOwnerChecklists(normalized),
+    launch_copy: draftChannelLaunchCopy(normalized),
+    follow_up_questions: followUpQuestions,
+  });
 }
 
 export const launchPlanningTools = [

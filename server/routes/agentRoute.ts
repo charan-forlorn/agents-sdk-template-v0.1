@@ -1,8 +1,10 @@
 import type { Request, Response } from 'express';
 import { run } from '@openai/agents';
 import { randomUUID } from 'node:crypto';
-import { LaunchInputSchema } from '../domain/launchTypes.js';
+import type { LaunchInput, StructuredLaunchPlan } from '../domain/launchTypes.js';
+import { LaunchInputSchema, StructuredLaunchPlanSchema } from '../domain/launchTypes.js';
 import { buildLaunchPrompt, launchDeskAgent } from '../agent/launchAgent.js';
+import { buildStructuredLaunchPlan } from '../tools/launchTools.js';
 import { traceLaunchEvent } from '../observability/tracing.js';
 
 type SseEvent = {
@@ -10,6 +12,14 @@ type SseEvent = {
   name?: string;
   text?: string;
   data?: unknown;
+};
+
+type FinalEvent = {
+  type: 'final';
+  text: string;
+  data?: {
+    structured: StructuredLaunchPlan;
+  };
 };
 
 function sendEvent(res: Response, event: SseEvent): void {
@@ -66,6 +76,19 @@ function toolNameFromEvent(event: unknown): string | undefined {
   return allowedToolNames.has(name) ? name : undefined;
 }
 
+export function createFinalEvent(
+  input: LaunchInput,
+  finalText: string,
+  structuredBuilder: (value: LaunchInput) => unknown = buildStructuredLaunchPlan,
+): FinalEvent {
+  try {
+    const structured = StructuredLaunchPlanSchema.parse(structuredBuilder(input));
+    return { type: 'final', text: finalText, data: { structured } };
+  } catch {
+    return { type: 'final', text: finalText };
+  }
+}
+
 export async function streamLaunchPlan(req: Request, res: Response): Promise<void> {
   const requestId = randomUUID();
   res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
@@ -98,9 +121,13 @@ export async function streamLaunchPlan(req: Request, res: Response): Promise<voi
       }
     }
 
-    const finalText = await result.finalOutput;
+    const finalText = String((await result.finalOutput) ?? '');
+    const finalEvent = createFinalEvent(input, finalText);
+    if (!finalEvent.data?.structured) {
+      traceLaunchEvent({ requestId, event: 'agent.structured_output.skipped', metadata: { reason: 'validation_failed' } });
+    }
     traceLaunchEvent({ requestId, event: 'agent.request.completed' });
-    sendEvent(res, { type: 'final', text: String(finalText ?? '') });
+    sendEvent(res, finalEvent);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown launch agent error';
     traceLaunchEvent({ requestId, event: 'agent.request.failed', metadata: { message } });

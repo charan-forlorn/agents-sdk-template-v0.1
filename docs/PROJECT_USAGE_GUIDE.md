@@ -31,6 +31,8 @@ User opens the web UI
 
 The API key is used only on the server. The frontend calls local API routes and should never receive the raw key.
 
+The stream contract is backward compatible. The `final` event always includes `type: "final"` and `text`; when structured output is available, it is attached only at `data.structured` with `prioritized_plan`, `risks`, `owner_checklist`, `launch_copy`, and `follow_up_questions`.
+
 ## 4. Main Files and Folders
 
 | Path | Purpose | When to edit it |
@@ -134,6 +136,7 @@ The final answer is designed to include a prioritized plan, risk register, owner
 - Request schema: edit `server/domain/launchTypes.ts`.
 - API behavior and streaming: edit `server/routes/agentRoute.ts`.
 - Tool behavior: edit deterministic functions and SDK tool wrappers in `server/tools/launchTools.ts`.
+- Structured output: edit `StructuredLaunchPlanSchema` in `server/domain/launchTypes.ts` and the deterministic builder in `server/tools/launchTools.ts`.
 - Tests: add or update files in `tests/`.
 - Browser validation: update scripts in `scripts/`.
 

@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildStructuredLaunchPlan,
   checkReadinessAgainstRubric,
   draftChannelLaunchCopy,
   extractTasksFromBrief,
   generateOwnerChecklists,
 } from '../server/tools/launchTools.js';
+import { StructuredLaunchPlanSchema } from '../server/domain/launchTypes.js';
 
 const completeInput = {
   productBrief:
@@ -53,5 +55,39 @@ describe('launch planning tools', () => {
     const copy = draftChannelLaunchCopy(completeInput);
     expect(copy.map((item) => item.channel).sort()).toEqual(['changelog', 'email', 'in-app', 'social']);
     expect(copy.every((item) => item.copy.includes('Enterprise admins') || item.channel === 'email')).toBe(true);
+  });
+
+  it('builds valid structured launch plan sections', () => {
+    const structured = buildStructuredLaunchPlan(completeInput);
+    expect(StructuredLaunchPlanSchema.safeParse(structured).success).toBe(true);
+    expect(Object.keys(structured).sort()).toEqual([
+      'follow_up_questions',
+      'launch_copy',
+      'owner_checklist',
+      'prioritized_plan',
+      'risks',
+    ]);
+    expect(structured.prioritized_plan.length).toBeGreaterThan(0);
+    expect(structured.risks.length).toBeGreaterThan(0);
+    expect(structured.owner_checklist.length).toBeGreaterThan(0);
+    expect(structured.launch_copy.length).toBe(4);
+  });
+
+  it('builds structured output deterministically for identical input', () => {
+    const first = buildStructuredLaunchPlan(completeInput);
+    const second = buildStructuredLaunchPlan(completeInput);
+    expect(second).toEqual(first);
+  });
+
+  it('includes follow-up questions when launch details are missing', () => {
+    const structured = buildStructuredLaunchPlan({
+      productBrief: 'Launch billing exports for finance teams.',
+      audience: 'Finance admins',
+      launchDate: '2026-09-01',
+      constraints: '',
+      assets: '',
+    });
+    expect(structured.follow_up_questions.length).toBeGreaterThan(0);
+    expect(structured.follow_up_questions.some((question) => question.includes('success metrics'))).toBe(true);
   });
 });

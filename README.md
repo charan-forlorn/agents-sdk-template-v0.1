@@ -26,6 +26,8 @@ Browser UI
 
 The OpenAI API key is used by the server process only. The browser calls local API routes and should never receive the raw key.
 
+The `final` stream event always includes `type: "final"` and `text`. Newer clients can also read optional structured output from `final.data.structured`, which contains `prioritized_plan`, `risks`, `owner_checklist`, `launch_copy`, and `follow_up_questions`. Clients that only read `text` remain supported.
+
 ## Project Structure
 
 - `src/` - React/Vite frontend UI.

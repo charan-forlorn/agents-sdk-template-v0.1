@@ -34,6 +34,41 @@ export type LaunchCopy = {
   copy: string;
 };
 
+export const PlanTaskSchema = z.object({
+  title: z.string().min(1),
+  ownerRole: z.string().min(1),
+  priority: z.enum(['P0', 'P1', 'P2']),
+  rationale: z.string().min(1),
+});
+
+export const OwnerChecklistSchema = z.object({
+  ownerRole: z.string().min(1),
+  items: z.array(z.string().min(1)),
+});
+
+export const LaunchCopySchema = z.object({
+  channel: z.enum(['email', 'in-app', 'changelog', 'social']),
+  copy: z.string().min(1),
+});
+
+export const LaunchRiskSchema = z.object({
+  title: z.string().min(1),
+  severity: z.enum(['low', 'medium', 'high']),
+  mitigation: z.string().min(1),
+});
+
+export type LaunchRisk = z.infer<typeof LaunchRiskSchema>;
+
+export const StructuredLaunchPlanSchema = z.object({
+  prioritized_plan: z.array(PlanTaskSchema),
+  risks: z.array(LaunchRiskSchema),
+  owner_checklist: z.array(OwnerChecklistSchema),
+  launch_copy: z.array(LaunchCopySchema),
+  follow_up_questions: z.array(z.string().min(1)),
+});
+
+export type StructuredLaunchPlan = z.infer<typeof StructuredLaunchPlanSchema>;
+
 export function normalizeLaunchInput(input: LaunchInput): LaunchInput {
   return {
     productBrief: input.productBrief.trim(),

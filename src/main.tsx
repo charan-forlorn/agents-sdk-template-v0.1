@@ -27,6 +27,32 @@ type StreamEvent = {
   type: 'tool_progress' | 'model_delta' | 'final' | 'error' | 'trace';
   name?: string;
   text?: string;
+  data?: {
+    structured?: StructuredLaunchPlan;
+  };
+};
+
+type StructuredLaunchPlan = {
+  prioritized_plan: Array<{
+    title: string;
+    ownerRole: string;
+    priority: 'P0' | 'P1' | 'P2';
+    rationale: string;
+  }>;
+  risks: Array<{
+    title: string;
+    severity: 'low' | 'medium' | 'high';
+    mitigation: string;
+  }>;
+  owner_checklist: Array<{
+    ownerRole: string;
+    items: string[];
+  }>;
+  launch_copy: Array<{
+    channel: 'email' | 'in-app' | 'changelog' | 'social';
+    copy: string;
+  }>;
+  follow_up_questions: string[];
 };
 
 const initialForm: LaunchForm = {
@@ -98,6 +124,7 @@ function App() {
   const [events, setEvents] = useState<StreamEvent[]>([]);
   const [draft, setDraft] = useState('');
   const [finalText, setFinalText] = useState('');
+  const [structuredPlan, setStructuredPlan] = useState<StructuredLaunchPlan | null>(null);
 
   const completedTools = useMemo(
     () => Array.from(new Set(events.filter((event) => event.type === 'tool_progress').map((event) => event.name ?? 'tool'))),
@@ -110,6 +137,7 @@ function App() {
     setEvents([]);
     setDraft('');
     setFinalText('');
+    setStructuredPlan(null);
 
     try {
       const response = await fetch('/api/agent/launch-plan', {
@@ -137,7 +165,10 @@ function App() {
           const parsed = JSON.parse(dataLine.slice(6)) as StreamEvent;
           setEvents((current) => [...current, parsed]);
           if (parsed.type === 'model_delta' && parsed.text) setDraft((current) => current + parsed.text);
-          if (parsed.type === 'final' && parsed.text) setFinalText(parsed.text);
+          if (parsed.type === 'final') {
+            if (parsed.text) setFinalText(parsed.text);
+            setStructuredPlan(parsed.data?.structured ?? null);
+          }
           if (parsed.type === 'error') throw new Error(parsed.text || 'Agent stream failed.');
         }
       }
@@ -279,7 +310,9 @@ function App() {
             </div>
 
             <article className="agent-output">
-              {finalText || draft ? (
+              {structuredPlan ? (
+                <StructuredPlanView plan={structuredPlan} fallbackText={finalText} />
+              ) : finalText || draft ? (
                 <pre>{finalText || draft}</pre>
               ) : (
                 <div className="empty-state">
@@ -296,6 +329,80 @@ function App() {
         </section>
       </section>
     </main>
+  );
+}
+
+function StructuredPlanView({ plan, fallbackText }: { plan: StructuredLaunchPlan; fallbackText: string }) {
+  return (
+    <div className="structured-output">
+      <section>
+        <h3>Prioritized plan</h3>
+        <ol>
+          {plan.prioritized_plan.map((task) => (
+            <li key={`${task.priority}-${task.title}`}>
+              <strong>{task.priority}: {task.title}</strong>
+              <span>{task.ownerRole}</span>
+              <p>{task.rationale}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section>
+        <h3>Risks</h3>
+        <ul>
+          {plan.risks.map((risk) => (
+            <li key={`${risk.severity}-${risk.title}`}>
+              <strong>{risk.title}</strong>
+              <span>{risk.severity}</span>
+              <p>{risk.mitigation}</p>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section>
+        <h3>Owner checklist</h3>
+        {plan.owner_checklist.map((checklist) => (
+          <div className="structured-group" key={checklist.ownerRole}>
+            <strong>{checklist.ownerRole}</strong>
+            <ul>
+              {checklist.items.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </section>
+
+      <section>
+        <h3>Launch copy</h3>
+        {plan.launch_copy.map((item) => (
+          <div className="structured-copy" key={item.channel}>
+            <strong>{item.channel}</strong>
+            <p>{item.copy}</p>
+          </div>
+        ))}
+      </section>
+
+      {plan.follow_up_questions.length > 0 && (
+        <section>
+          <h3>Follow-up questions</h3>
+          <ul>
+            {plan.follow_up_questions.map((question) => (
+              <li key={question}>{question}</li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {fallbackText && (
+        <details>
+          <summary>Text response</summary>
+          <pre>{fallbackText}</pre>
+        </details>
+      )}
+    </div>
   );
 }
 
