@@ -1,6 +1,18 @@
 import React, { useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { AlertTriangle, CheckCircle2, ClipboardList, Loader2, Megaphone, Radio, Send, ShieldCheck } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ClipboardList,
+  Code2,
+  FileText,
+  Loader2,
+  Megaphone,
+  Radio,
+  Send,
+  ShieldCheck,
+  Sparkles,
+} from 'lucide-react';
 import './styles.css';
 
 type LaunchForm = {
@@ -32,6 +44,53 @@ const toolLabels: Record<string, string> = {
   generate_owner_checklists: 'Owner checklists',
   draft_channel_launch_copy: 'Draft copy',
 };
+
+const examplePrompts: Array<{ label: string; form: LaunchForm }> = [
+  {
+    label: 'Summarize this idea',
+    form: {
+      productBrief:
+        'Launch an AI summary sidebar that helps support managers turn long customer threads into concise action notes with quality review and audit history.',
+      audience: 'Support managers and customer success leads',
+      launchDate: '2026-08-20',
+      constraints: 'Needs privacy review, internal beta feedback, and clear rollback instructions.',
+      assets: 'Prototype demo, early beta notes, draft help-center article.',
+    },
+  },
+  {
+    label: 'Create a launch checklist',
+    form: {
+      productBrief:
+        'Release workspace template sharing for engineering teams with admin controls, adoption metrics, docs updates, and support enablement.',
+      audience: 'Engineering managers and workspace admins',
+      launchDate: '2026-09-10',
+      constraints: 'Feature-flag rollout, no customer downtime, support coverage required.',
+      assets: 'Docs draft, demo recording outline, customer quote, support FAQ.',
+    },
+  },
+  {
+    label: 'Draft an automation workflow',
+    form: {
+      productBrief:
+        'Launch automated incident handoff workflows that route unresolved alerts to the next on-call owner and create a release-readiness audit trail.',
+      audience: 'Platform engineering and incident response teams',
+      launchDate: '2026-10-01',
+      constraints: 'Must pass security review and include manual override guidance.',
+      assets: 'Runbook draft, workflow diagram, internal enablement notes.',
+    },
+  },
+  {
+    label: 'Explain this codebase',
+    form: {
+      productBrief:
+        'Package this Agents SDK starter as a reusable developer template with clear frontend, API, agent, tool, test, and documentation boundaries.',
+      audience: 'Developers building OpenAI Agents SDK web apps',
+      launchDate: '2026-08-01',
+      constraints: 'Keep the template beginner-friendly and avoid exposing server-side secrets in the browser.',
+      assets: 'README, validation checklist, certification report, browser screenshots.',
+    },
+  },
+];
 
 function App() {
   const [form, setForm] = useState(initialForm);
@@ -98,13 +157,48 @@ function App() {
       <header className="topbar">
         <div>
           <h1>Launch Desk</h1>
-          <p>Turn a rough release idea into an actionable launch plan.</p>
+          <p>Agents SDK Template for building and testing streamed agent workflows from a clean starter app.</p>
         </div>
         <div className={`stream-pill ${status}`}>
           {status === 'streaming' ? <Loader2 size={16} className="spin" /> : <Radio size={16} />}
           {status === 'idle' ? 'Ready' : status === 'complete' ? 'Stream complete' : status === 'error' ? 'Needs attention' : 'Streaming'}
         </div>
       </header>
+
+      <section className="template-guide" aria-label="Template usage guide">
+        <div className="guide-card intro">
+          <Sparkles size={20} />
+          <div>
+            <h2>Agents SDK Template</h2>
+            <p>Use this working launch-planning demo as a starting point for your own agent UI, API route, tools, and tests.</p>
+          </div>
+        </div>
+
+        <div className="guide-card flow">
+          {['Write a task', 'Run the agent', 'Review the response'].map((step, index) => (
+            <div className="flow-step" key={step}>
+              <span>{index + 1}</span>
+              {step}
+            </div>
+          ))}
+        </div>
+
+        <div className="guide-card setup">
+          <div className="setup-title">
+            <Code2 size={18} />
+            <h2>Developer setup</h2>
+          </div>
+          <code>pnpm install</code>
+          <code>pnpm dev</code>
+          <code>pnpm test</code>
+          <code>pnpm run build</code>
+        </div>
+
+        <div className="guide-card notice">
+          <FileText size={18} />
+          <p>Live agent calls require server-side <strong>OPENAI_API_KEY</strong>. Keep `.env.local` local and out of git.</p>
+        </div>
+      </section>
 
       <section className="workspace">
         <form className="input-panel" onSubmit={submitLaunchPlan}>
@@ -143,6 +237,17 @@ function App() {
             Available assets
             <textarea value={form.assets} onChange={(event) => setForm({ ...form, assets: event.target.value })} rows={4} />
           </label>
+
+          <div className="example-prompts" aria-label="Example prompts">
+            <span>Examples</span>
+            <div className="example-grid">
+              {examplePrompts.map((example) => (
+                <button type="button" className="example-button" key={example.label} onClick={() => setForm(example.form)}>
+                  {example.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
           <button className="primary-button" disabled={status === 'streaming'}>
             {status === 'streaming' ? <Loader2 size={18} className="spin" /> : <Send size={18} />}
