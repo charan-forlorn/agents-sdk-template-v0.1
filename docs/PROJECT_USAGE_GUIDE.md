@@ -106,6 +106,13 @@ cp .env.example .env.local
 
 Do not commit `.env.local`. Do not put `OPENAI_API_KEY` in frontend code.
 
+Security rules:
+
+- Keep `OPENAI_API_KEY` server-side.
+- Never print or log the key value.
+- Never commit `.env.local`.
+- Use `.env.example` only for safe variable names and placeholder values.
+
 ## 7. How To Use The App
 
 1. Start the app with `pnpm dev`.
@@ -132,13 +139,37 @@ The final answer is designed to include a prioritized plan, risk register, owner
 
 Keep orchestration in `server/agent`, domain logic in `server/tools` and `server/domain`, API translation in `server/routes`, and UI state in `src`.
 
-## 9. Current Limitations
+## 9. Verification Commands
+
+Run these before shipping changes:
+
+```bash
+pnpm test
+pnpm run build
+```
+
+With local servers running and `OPENAI_API_KEY` configured, run the live verification checks:
+
+```bash
+pnpm run smoke
+pnpm run verify:stream
+```
+
+`pnpm run smoke` checks the browser, `/api/health`, and required stream events. `pnpm run verify:stream` posts directly to the agent stream endpoint and fails unless it observes `tool_progress`, `model_delta`, and `final`.
+
+## 10. Release Safety
+
+`agents-sdk-template-v0.1` is the certified release tag for the original v0.1 baseline at commit `77d85b143bff3eb1def3e9a7db6421d903881e1d`.
+
+Do not move, recreate, or force-update certified release tags. Continue normal improvements on `main` and create a new tag only when intentionally certifying a new release.
+
+## 11. Current Limitations
 
 - Live agent calls require a valid server-side `OPENAI_API_KEY`.
 - `pnpm run verify:stream`, `pnpm run smoke`, and `pnpm run test:ui` need local servers and live API access for full end-to-end verification.
 - The included agent is specialized for launch planning. To build a different product, update the form, schema, tools, agent instructions, and tests together.
 - The template does not include persistence, authentication, deployment config, or production rate limiting.
 
-## 10. Recommended Next Steps
+## 12. Recommended Next Steps
 
 Add a structured final-output schema so downstream apps can render the release plan as typed sections instead of plain streamed text.
